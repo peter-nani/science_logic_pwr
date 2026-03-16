@@ -1,0 +1,21 @@
+query GetFullDeviceInventory {
+  devices(first: 500, after: "") {
+    pageInfo {
+      hasNextPage
+      matchCount
+      __typename
+    }
+    edges {
+      cursor
+      node {
+        id
+        name
+        ip
+        deviceClass {
+          class
+          description
+        }
+      }
+    }
+  }
+}
