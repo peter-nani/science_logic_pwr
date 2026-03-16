@@ -1,5 +1,21 @@
 # science_logic_pwr
-Graphql query to Fetch all devices.
+1. Graphql query to Fetch all devices.
+2. This is a significant upgrade. We are moving from multiple, heavy REST API calls (which required calculating counts from a database first) to a single, efficient GraphQL query.
+3. Instead of two separate REST calls, we get the name, ip, and deviceClass in one response.
+4. It uses the hasNextPage and cursor logic to ensure 100% data coverage.
+5. We no longer need to query the SQL database for a count, as GraphQL handles the limits.
+
+
+# QUERY LOGICAL FLOW:
+
+### URL Manipulation:
+ I added .replace('/api', '/gql'). Most ScienceLogic/SL1 platforms host the GraphQL endpoint at /gql. Please verify if your endpoint matches this.
+
+### The Loop: 
+ The while has_next_page: loop is the engine. It starts with an empty cursor, gets 500 records, finds the cursor for the last item, and feeds it back in until the database is empty.
+
+### Efficiency: 
+Instead of doing string splits on URIs manually for classes and info separately, the GQL query returns the deviceClass object nested inside the device node. We process everything in one loop over the all_devices list.
 
 # Device Inventory GraphQL Integration Guide
 Overview
