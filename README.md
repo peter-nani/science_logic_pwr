@@ -4,6 +4,7 @@
 3. Instead of two separate REST calls, we get the name, ip, and deviceClass in one response.
 4. It uses the hasNextPage and cursor logic to ensure 100% data coverage.
 5. We no longer need to query the SQL database for a count, as GraphQL handles the limits.
+Performance: GQL is much faster than REST. For 5,000 devices, this should complete in seconds, not minutes.
 
 
 # QUERY LOGICAL FLOW:

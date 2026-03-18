@@ -6,6 +6,8 @@ import logging
 from silo_common.credentials import cred_array_from_id
 from silo_common.database import local_db
 import silo_common.snippets as em7_snippets
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Set up logging
 log_file_name = '/data/logs/sl_elk/api_fetch.log'
@@ -31,12 +33,15 @@ files = {
     "deviceid_ip": local_remote_path + 'deviceid_ip.yml'
 }
 
-# Credentials (Assumes variables sl_api_cred_id, elk_cred_id, and hostnames are provided in environment)
+# SL API Credentials id:
 sl_api_cred_details = cred_array_from_id(local_db())(int(sl_api_cred_id))
-sl_gql_url = sl_api_cred_details['curl_url'].replace('/api', '/gql') # Adjusting URL for GQL endpoint
+sl_url = sl_api_cred_details['curl_url']
+sl_gql_url = f"{sl_url}/gql"
 sl_user_name = sl_api_cred_details['cred_user']
 sl_password = sl_api_cred_details['cred_pwd']
 
+
+hostnames = ["192.168.2.167", "192.168.2.168", "192.168.2.169"]
 ssh_cred_details = cred_array_from_id(local_db())(int(elk_cred_id))
 elk_username = ssh_cred_details['cred_user']
 elk_password = ssh_cred_details['cred_pwd']
