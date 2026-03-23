@@ -1,3 +1,4 @@
+import os
 import requests
 import json
 import paramiko
@@ -15,27 +16,38 @@ from silo.apps.storage import dbc_cursor
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Set up logging
-log_file_name = '/data/logs/sl_elk/api_fetch.log'
+log_file_name = log_file_path
+
+# 1. Determine the log level based on the Input Specification flag
+# If debug_mode is True, use logging.DEBUG, otherwise use logging.INFO
+current_log_level = logging.DEBUG if debug_mode else logging.INFO
+
+# 2. Configure the Logger
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(current_log_level)  # Dynamically set!
 log_formatter = logging.Formatter('%(asctime)s,%(levelname)s,%(lineno)d,%(message)s')
 log_file_handler = logging.FileHandler(log_file_name)
 log_file_handler.setFormatter(log_formatter)
 logger.addHandler(log_file_handler)
+logger.info(f"Logger initialized. Current Level: {'DEBUG' if debug_mode else 'INFO'}")
 
 # Configuration
-local_remote_path = "/data/logs/sl_elk/"
-remote_path_file = "/opt/elk/logstash/config/enrichment_sl/"
+local_remote_path = sl_remote_path
+remote_path_file = elk_remote_path
+
+logger.info(f"Remote paths: {remote_path_file, local_remote_path}")
 
 # File Paths
+# Use the 'sl_remote_path' and the 'fn_' variables from the Input Spec
+# We use os.path.join to ensure slashes are handled correctly
 files = {
-    "hostname_class": local_remote_path + 'hostname_class.yml',
-    "ip_class": local_remote_path + 'ipaddress_class.yml',
-    "id_class": local_remote_path + 'deviceid_class.yml',
-    "host_ip": local_remote_path + 'hostname_ipaddress.yml',
-    "ip_host": local_remote_path + 'ipaddress_hostname.yml',
-    "deviceid_host": local_remote_path + 'deviceid_host.yml',
-    "deviceid_ip": local_remote_path + 'deviceid_ip.yml'
+    "hostname_class": os.path.join(sl_remote_path, fn_host_class),
+    "ip_class": os.path.join(sl_remote_path, fn_ip_class),
+    "id_class": os.path.join(sl_remote_path, fn_id_class),
+    "host_ip": os.path.join(sl_remote_path, fn_host_ip),
+    "ip_host": os.path.join(sl_remote_path, fn_ip_host),
+    "deviceid_host": os.path.join(sl_remote_path, fn_id_host),
+    "deviceid_ip": os.path.join(sl_remote_path, fn_id_ip)
 }
 
 # --- Database and Credential Retrieval ---
@@ -45,7 +57,9 @@ dbc = dbc_cursor(legacy=True)
 
 # Fetch ScienceLogic API Credentials
 # Ensure sl_api_cred_id is defined in your environment
+
 sl_cred = get_cred_array_from_id(dbc, int(sl_api_cred_id))
+logger.info(f"Retrieved SL API Credential: {sl_cred}")
 sl_url = sl_cred.get("curl_url", "").rstrip('/')
 sl_gql_url = f"{sl_url}/gql"
 sl_user_name = sl_cred.get("cred_user")
@@ -53,7 +67,7 @@ sl_password = sl_cred.get("cred_pwd")
 
 # Fetch ELK SSH Credentials
 # Ensure elk_cred_id and hostnames list are defined
-hostnames = ["192.168.2.167", "192.168.2.168", "192.168.2.169"]
+hostnames = [h.strip() for h in elk_hosts.split(",")]
 elk_cred = get_cred_array_from_id(dbc, int(elk_cred_id))
 elk_username = elk_cred.get("cred_user")
 elk_password = elk_cred.get("cred_pwd")
@@ -105,6 +119,7 @@ def fetch_all_devices_gql():
             )
             response.raise_for_status()
             data = response.json()
+            logging.debug(f"Response from GQL Query: {data}")
             
             device_data = data['data']['devices']
             edges = device_data['edges']
@@ -183,26 +198,26 @@ if device_list:
     file_paths = list(files.values())
     for target_host in hostnames:
         ssh, sftp = create_sftp_client(target_host, elk_username, elk_password)
-        if sftp:
+        
+        if ssh and sftp:
             try:
-                # NEW: Ensure remote directory exists
+                # 1. Handle the remote directory
                 try:
-                    sftp.chdir(remote_path_file)  # Try to enter the directory
+                    sftp.chdir(elk_remote_path)
                 except IOError:
-                    logger.warning(f"Remote path {remote_path_file} not found on {target_host}. Attempting to create.")
-                    # This creates the directory if permissions allow
-                    ssh.exec_command(f'mkdir -p {remote_path_file}')
+                    ssh.exec_command(f'mkdir -p {elk_remote_path}')
                 
-                for path in file_paths:
-                    fname = path.split('/')[-1]
-                    remote_destination = remote_path_file + fname
-                    sftp.put(path, remote_destination)
-                    logger.info(f"Successfully transferred {fname} to {target_host}")
-                    
+                # 2. Upload the files
+                for path in files.values():
+                    fname = os.path.basename(path)
+                    sftp.put(path, os.path.join(elk_remote_path, fname)) #sftp.put will always overwrite a file if it already exists at the remote destination
+                    logger.info(f"Sent {fname} to {target_host}")
+
             except Exception as e:
-                logger.error(f"Transfer error on {target_host}: {str(e)}")
+                logger.error(f"Failed on {target_host}: {e}")
+                
             finally:
-                sftp.close()
-                ssh.close()
+                if sftp: sftp.close()
+                if ssh: ssh.close()
         else:
-            logger.error(f"Skipping {target_host} due to connection failure.")
+            logger.error(f"Could not connect to {target_host}")

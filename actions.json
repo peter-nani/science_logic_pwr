@@ -1,0 +1,17 @@
+{
+  "db_cred_id": 1,
+  "elk_cred_id": 197,
+  "sl_api_cred_id": 89,
+  "debug_mode": false,
+  "elk_hosts": "192.168.2.167, 192.168.2.168, 192.168.2.169",
+  "log_file_path": "/data/logs/sl_data_elk_yaml.log",
+  "sl_remote_path": "/tmp/sl_elk_sync/",
+  "elk_remote_path": "/opt/elk/logstash/config/enrichment_sl/",
+  "fn_host_class": "hostname_class.yml",
+  "fn_ip_class": "ipaddress_class.yml",
+  "fn_id_class": "deviceid_class.yml",
+  "fn_host_ip": "hostname_ipaddress.yml",
+  "fn_ip_host": "ipaddress_hostname.yml",
+  "fn_id_host": "deviceid_host.yml",
+  "fn_id_ip": "deviceid_ip.yml"
+}
